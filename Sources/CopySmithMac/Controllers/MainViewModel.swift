@@ -22,7 +22,7 @@ final class MainViewModel {
 
     private(set) var clipboardText: String = ""
     private(set) var models: [String] = []
-    private(set) var selectedModel: String = "qwen3-4b"
+    private(set) var selectedModel: String = "apple-intelligence"
     private(set) var modeStates: [String: ModeResultState] = [:]
     private(set) var selectedModeIds: [String] = []   // ordered
     private(set) var refinedResult: String = ""
@@ -31,7 +31,7 @@ final class MainViewModel {
 
     private let clipboard: ClipboardServiceProtocol
     private var preferences: PreferencesServiceProtocol
-    private let chatService: ChatCompletionService
+    private let chatService: any LLMService
     private let modelService: ModelService
     private let scheduler = GenerationScheduler()
 
@@ -55,7 +55,7 @@ final class MainViewModel {
     init(
         clipboard: ClipboardServiceProtocol = ClipboardService(),
         preferences: PreferencesServiceProtocol = PreferencesService(),
-        chatService: ChatCompletionService = ChatCompletionService(),
+        chatService: any LLMService = FoundationModelService(),
         modelService: ModelService = ModelService()
     ) {
         self.clipboard = clipboard
@@ -72,7 +72,7 @@ final class MainViewModel {
     // MARK: Launch
 
     func onLaunch() {
-        selectedModel = preferences.selectedModel ?? "qwen3-4b"
+        selectedModel = preferences.selectedModel ?? "apple-intelligence"
         clipboardText = clipboard.readString() ?? ""
 
         loadModels()
@@ -112,6 +112,8 @@ final class MainViewModel {
                 } else if let first = fetched.first {
                     self.selectedModel = first
                     self.preferences.selectedModel = first
+                } else {
+                    self.selectedModel = "apple-intelligence"
                 }
 
                 self.delegate?.modelsDidLoad(fetched, selectedModel: self.selectedModel)

@@ -1,31 +1,13 @@
 import Foundation
+import FoundationModels
 
 struct ModelService: Sendable {
-    let endpoint: URL
-    let timeout: TimeInterval
-
-    init(
-        endpoint: URL = URL(string: "http://localhost:2276/v1/models")!,
-        timeout: TimeInterval = 10
-    ) {
-        self.endpoint = endpoint
-        self.timeout = timeout
-    }
-
     func fetchModels() async throws -> [String] {
-        let config = URLSessionConfiguration.default
-        config.timeoutIntervalForRequest = timeout
-        let session = URLSession(configuration: config)
-
-        let (data, _) = try await session.data(from: endpoint)
-
-        guard
-            let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-            let dataArray = json["data"] as? [[String: Any]]
-        else {
-            throw URLError(.badServerResponse)
+        guard case .available = SystemLanguageModel.default.availability else {
+            throw ChatError.apiError(
+                "Apple Intelligence is not available. Please enable it in System Settings > Apple Intelligence & Siri."
+            )
         }
-
-        return dataArray.compactMap { $0["id"] as? String }
+        return ["apple-intelligence"]
     }
 }

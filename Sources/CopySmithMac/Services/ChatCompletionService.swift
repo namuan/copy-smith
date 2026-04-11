@@ -1,5 +1,11 @@
 import Foundation
 
+// MARK: - LLM Service Protocol
+
+protocol LLMService: Sendable {
+    func stream(model: String, prompt: String) -> AsyncThrowingStream<String, Error>
+}
+
 // MARK: - Errors
 
 enum ChatError: Error, Sendable {
@@ -47,7 +53,7 @@ enum SSEParser {
 
 // MARK: - Service
 
-struct ChatCompletionService: Sendable {
+struct ChatCompletionService: LLMService {
     let endpoint: URL
     let timeout: TimeInterval
 
