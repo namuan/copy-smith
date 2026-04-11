@@ -9,6 +9,42 @@ protocol ResultPanelViewDelegate: AnyObject {
     func panelDidRequestAdd(_ panel: ResultPanelView)
 }
 
+// MARK: - Scroll-passthrough scroll view
+
+/// When the user scrolls to the top or bottom edge of this scroll view,
+/// passes the remaining scroll delta up to the enclosing scroll view.
+private class PassthroughScrollView: NSScrollView {
+    override func scrollWheel(with event: NSEvent) {
+        let delta = event.scrollingDeltaY
+
+        guard delta != 0, let doc = documentView else {
+            super.scrollWheel(with: event)
+            return
+        }
+
+        let docHeight  = doc.frame.height
+        let viewHeight = contentView.bounds.height
+
+        // Content fits entirely — nothing to scroll here, let outer scroll view handle it
+        if docHeight <= viewHeight {
+            nextResponder?.scrollWheel(with: event)
+            return
+        }
+
+        let originY    = contentView.bounds.origin.y
+        let maxOriginY = docHeight - viewHeight
+        // With natural scrolling: positive delta = swipe up = content moves up = toward bottom
+        let atBottom   = originY >= maxOriginY - 0.5
+        let atTop      = originY <= 0.5
+
+        if (delta > 0 && atBottom) || (delta < 0 && atTop) {
+            nextResponder?.scrollWheel(with: event)
+        } else {
+            super.scrollWheel(with: event)
+        }
+    }
+}
+
 // MARK: - Click-forwarding text view
 
 /// Forwards mouseDown events to the enclosing ResultPanelView so that
@@ -46,7 +82,7 @@ final class ResultPanelView: NSView {
     private let copyBtn    = NSButton(title: "Copy",     target: nil, action: nil)
     private let addBtn     = NSButton(title: "Add >>",   target: nil, action: nil)
     private let textView   = PanelTextView()
-    private let scrollView = NSScrollView()
+    private let scrollView = PassthroughScrollView()
     private let progress   = NSProgressIndicator()
 
     private var textHeightConstraint: NSLayoutConstraint!
