@@ -1,20 +1,8 @@
 import Foundation
 
-// MARK: - LLM Service Protocol
+// MARK: - Internal error types
 
-protocol LLMService: Sendable {
-    func stream(prompt: String) -> AsyncThrowingStream<String, Error>
-}
-
-// MARK: - Errors
-
-enum ChatError: Error, Sendable {
-    case apiError(String)
-    case networkError(String)
-    case cancelled
-}
-
-struct RetryableHTTPError: Error {
+private struct RetryableHTTPError: Error {
     let statusCode: Int
     let retryAfter: TimeInterval?
 }
@@ -65,24 +53,13 @@ struct ChatCompletionService: LLMService {
         self.timeout = timeout
     }
 
-    /// Returns an AsyncThrowingStream of text chunks. Cancellation propagates automatically.
     func stream(prompt: String) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
-            let task = Task {
-                do {
-                    try await withRetry(maxAttempts: 3) {
-                        try await performRequest(prompt: prompt) { chunk in
-                            continuation.yield(chunk)
-                        }
-                    }
-                    continuation.finish()
-                } catch is CancellationError {
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
+        .taskBacked { continuation in
+            try await self.withRetry(maxAttempts: 3) {
+                try await self.performRequest(prompt: prompt) { chunk in
+                    continuation.yield(chunk)
                 }
             }
-            continuation.onTermination = { _ in task.cancel() }
         }
     }
 

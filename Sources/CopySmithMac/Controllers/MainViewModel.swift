@@ -286,9 +286,10 @@ private func errorMessage(from error: Error) -> String {
     switch error {
     case let e as ChatError:
         switch e {
-        case .apiError(let s): return "Apple Intelligence error: \(s)"
+        case .unavailable(let s): return s
+        case .apiError(let s):    return "API error: \(s)"
         case .networkError(let s): return s
-        case .cancelled: return ""
+        case .cancelled:           return ""
         }
     default:
         return "Error: \(error.localizedDescription)"

@@ -22,7 +22,7 @@ private class PassthroughScrollView: NSScrollView {
             return
         }
 
-        let docHeight  = doc.frame.height
+        let docHeight  = doc.bounds.height
         let viewHeight = contentView.bounds.height
 
         // Content fits entirely — nothing to scroll here, let outer scroll view handle it
