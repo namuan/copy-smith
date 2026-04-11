@@ -5,9 +5,6 @@ import AppKit
 
 @MainActor
 protocol MainViewModelDelegate: AnyObject {
-    func modelsLoadingStarted()
-    func modelsDidLoad(_ models: [String], selectedModel: String)
-    func modelsDidFailToLoad()
     func modeDidUpdate(modeId: String, state: ModeResultState)
     func selectionDidChange(selectedModeIds: [String])
     func refineDidUpdate(text: String, isLoading: Bool)
@@ -21,8 +18,6 @@ final class MainViewModel {
     // MARK: Published state
 
     private(set) var clipboardText: String = ""
-    private(set) var models: [String] = []
-    private(set) var selectedModel: String = "qwen3-4b"
     private(set) var modeStates: [String: ModeResultState] = [:]
     private(set) var selectedModeIds: [String] = []   // ordered
     private(set) var refinedResult: String = ""
@@ -30,15 +25,12 @@ final class MainViewModel {
     // MARK: Dependencies
 
     private let clipboard: ClipboardServiceProtocol
-    private var preferences: PreferencesServiceProtocol
-    private let chatService: ChatCompletionService
-    private let modelService: ModelService
+    private let chatService: any LLMService
     private let scheduler = GenerationScheduler()
 
     // MARK: Task tracking
 
     private var modeTasks: [String: Task<Void, Never>] = [:]
-    private var modelLoadTask: Task<Void, Never>?
     private var refineTask: Task<Void, Never>?
 
     /// Monotonically increasing; used for batch invalidation.
@@ -54,14 +46,10 @@ final class MainViewModel {
 
     init(
         clipboard: ClipboardServiceProtocol = ClipboardService(),
-        preferences: PreferencesServiceProtocol = PreferencesService(),
-        chatService: ChatCompletionService = ChatCompletionService(),
-        modelService: ModelService = ModelService()
+        chatService: any LLMService = FoundationModelService()
     ) {
         self.clipboard = clipboard
-        self.preferences = preferences
         self.chatService = chatService
-        self.modelService = modelService
 
         for mode in ChatMode.all {
             modeStates[mode.id] = .initial
@@ -72,10 +60,7 @@ final class MainViewModel {
     // MARK: Launch
 
     func onLaunch() {
-        selectedModel = preferences.selectedModel ?? "qwen3-4b"
         clipboardText = clipboard.readString() ?? ""
-
-        loadModels()
 
         if clipboardText.isEmpty {
             for mode in ChatMode.all {
@@ -92,45 +77,9 @@ final class MainViewModel {
         }
     }
 
-    // MARK: Model loading
-
-    func loadModels() {
-        modelLoadTask?.cancel()
-        delegate?.modelsLoadingStarted()
-
-        modelLoadTask = Task { [weak self] in
-            guard let self else { return }
-            do {
-                let fetched = try await modelService.fetchModels()
-                guard !Task.isCancelled else { return }
-
-                self.models = fetched
-
-                // Restore saved selection
-                if let saved = self.preferences.selectedModel, fetched.contains(saved) {
-                    self.selectedModel = saved
-                } else if let first = fetched.first {
-                    self.selectedModel = first
-                    self.preferences.selectedModel = first
-                }
-
-                self.delegate?.modelsDidLoad(fetched, selectedModel: self.selectedModel)
-            } catch {
-                guard !Task.isCancelled else { return }
-                self.delegate?.modelsDidFailToLoad()
-            }
-        }
-    }
-
-    func selectModel(_ model: String) {
-        selectedModel = model
-        preferences.selectedModel = model
-    }
-
     // MARK: Refresh all
 
     func refreshAll() {
-        // Cancel all running mode tasks
         for task in modeTasks.values { task.cancel() }
         modeTasks = [:]
         refineTask?.cancel()
@@ -221,7 +170,6 @@ final class MainViewModel {
         }
 
         let prompt = ChatMode.buildRefinePrompt(blocks: blocks)
-        let model = selectedModel
 
         refineTask?.cancel()
         refinedResult = "Loading..."
@@ -232,7 +180,7 @@ final class MainViewModel {
             var accumulated = ""
 
             do {
-                for try await chunk in self.chatService.stream(model: model, prompt: prompt) {
+                for try await chunk in self.chatService.stream(prompt: prompt) {
                     try Task.checkCancellation()
                     accumulated += chunk
                     let snapshot = accumulated
@@ -263,7 +211,6 @@ final class MainViewModel {
     func cancelAll() {
         for task in modeTasks.values { task.cancel() }
         modeTasks = [:]
-        modelLoadTask?.cancel()
         refineTask?.cancel()
     }
 
@@ -279,7 +226,6 @@ final class MainViewModel {
         let task = Task { [weak self] in
             guard let self else { return }
 
-            // Wait for scheduler slot; exits on cancellation
             do {
                 try await self.scheduler.waitForSlot()
             } catch {
@@ -293,17 +239,15 @@ final class MainViewModel {
             guard !Task.isCancelled else { return }
             guard self.modeGenerations[mode.id] == generation else { return }
 
-            // Mark as running
             let loading = ModeResultState(text: "Loading...", status: .running, generation: generation)
             self.modeStates[mode.id] = loading
             self.delegate?.modeDidUpdate(modeId: mode.id, state: loading)
 
             let prompt = mode.buildPrompt(for: self.clipboardText)
-            let model = self.selectedModel
             var accumulated = ""
 
             do {
-                for try await chunk in self.chatService.stream(model: model, prompt: prompt) {
+                for try await chunk in self.chatService.stream(prompt: prompt) {
                     try Task.checkCancellation()
                     guard self.modeGenerations[mode.id] == generation else { return }
 
@@ -342,11 +286,12 @@ private func errorMessage(from error: Error) -> String {
     switch error {
     case let e as ChatError:
         switch e {
-        case .apiError(let s): return "API request failed: \(s)"
+        case .unavailable(let s): return s
+        case .apiError(let s):    return "API error: \(s)"
         case .networkError(let s): return s
-        case .cancelled: return ""
+        case .cancelled:           return ""
         }
     default:
-        return "Network error: \(error.localizedDescription)"
+        return "Error: \(error.localizedDescription)"
     }
 }

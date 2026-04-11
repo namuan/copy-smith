@@ -1,14 +1,8 @@
 import Foundation
 
-// MARK: - Errors
+// MARK: - Internal error types
 
-enum ChatError: Error, Sendable {
-    case apiError(String)
-    case networkError(String)
-    case cancelled
-}
-
-struct RetryableHTTPError: Error {
+private struct RetryableHTTPError: Error {
     let statusCode: Int
     let retryAfter: TimeInterval?
 }
@@ -47,7 +41,7 @@ enum SSEParser {
 
 // MARK: - Service
 
-struct ChatCompletionService: Sendable {
+struct ChatCompletionService: LLMService {
     let endpoint: URL
     let timeout: TimeInterval
 
@@ -59,31 +53,19 @@ struct ChatCompletionService: Sendable {
         self.timeout = timeout
     }
 
-    /// Returns an AsyncThrowingStream of text chunks. Cancellation propagates automatically.
-    func stream(model: String, prompt: String) -> AsyncThrowingStream<String, Error> {
-        AsyncThrowingStream { continuation in
-            let task = Task {
-                do {
-                    try await withRetry(maxAttempts: 3) {
-                        try await performRequest(model: model, prompt: prompt) { chunk in
-                            continuation.yield(chunk)
-                        }
-                    }
-                    continuation.finish()
-                } catch is CancellationError {
-                    continuation.finish()
-                } catch {
-                    continuation.finish(throwing: error)
+    func stream(prompt: String) -> AsyncThrowingStream<String, Error> {
+        .taskBacked { continuation in
+            try await self.withRetry(maxAttempts: 3) {
+                try await self.performRequest(prompt: prompt) { chunk in
+                    continuation.yield(chunk)
                 }
             }
-            continuation.onTermination = { _ in task.cancel() }
         }
     }
 
     // MARK: Private
 
     private func performRequest(
-        model: String,
         prompt: String,
         onChunk: @Sendable (String) async -> Void
     ) async throws {
@@ -92,7 +74,6 @@ struct ChatCompletionService: Sendable {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = [
-            "model": model,
             "messages": [["role": "user", "content": prompt]],
             "stream": true
         ]

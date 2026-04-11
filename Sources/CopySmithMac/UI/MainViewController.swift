@@ -10,11 +10,8 @@ final class MainViewController: NSViewController {
     // MARK: UI
 
     // Top bar
-    private let modelLabel   = NSTextField(labelWithString: "Model:")
-    private let modelPopup   = NSPopUpButton()
-    private let modelRefresh = NSButton(title: "↻",         target: nil, action: nil)
     private let refreshAllBtn = NSButton(title: "Refresh All", target: nil, action: nil)
-    private let closeBtn     = NSButton(title: "Close",     target: nil, action: nil)
+    private let closeBtn      = NSButton(title: "Close",       target: nil, action: nil)
 
     // Content
     private let panelScrollView = NSScrollView()
@@ -53,34 +50,10 @@ final class MainViewController: NSViewController {
     // MARK: Top bar
 
     private func setupTopBar() {
-        // Model label
-        modelLabel.font      = Styles.font(size: Styles.buttonFontSize)
-        modelLabel.textColor = Styles.primaryText
-        modelLabel.isBordered = false
-        modelLabel.isEditable = false
-
-        // Model popup — starts with "Loading..."
-        modelPopup.addItem(withTitle: "Loading...")
-        modelPopup.isEnabled = false
-        modelPopup.font      = Styles.font(size: Styles.buttonFontSize)
-        modelPopup.target    = self
-        modelPopup.action    = #selector(modelSelected)
-        modelPopup.setContentHuggingPriority(.defaultHigh, for: .horizontal)
-        modelPopup.translatesAutoresizingMaskIntoConstraints = false
-        modelPopup.widthAnchor.constraint(greaterThanOrEqualToConstant: 160).isActive = true
-
-        // Model refresh button
-        configureToolbarButton(modelRefresh, title: "↻", width: 28)
-        modelRefresh.toolTip = "Refresh model list"
-        modelRefresh.target  = self
-        modelRefresh.action  = #selector(refreshModels)
-
-        // Refresh All
         configureToolbarButton(refreshAllBtn, title: "Refresh All")
         refreshAllBtn.target = self
         refreshAllBtn.action = #selector(refreshAll)
 
-        // Close
         configureToolbarButton(closeBtn, title: "Close")
         closeBtn.target = self
         closeBtn.action = #selector(closeApp)
@@ -88,9 +61,7 @@ final class MainViewController: NSViewController {
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
-        let bar = NSStackView(views: [
-            spacer, modelLabel, modelPopup, modelRefresh, refreshAllBtn, closeBtn
-        ])
+        let bar = NSStackView(views: [spacer, refreshAllBtn, closeBtn])
         bar.orientation  = .horizontal
         bar.spacing      = Styles.mainSpacing
         bar.alignment    = .centerY
@@ -105,7 +76,6 @@ final class MainViewController: NSViewController {
             bar.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -Styles.rootMargin),
         ])
 
-        // Tag the bar so setupContent can anchor below it
         bar.identifier = NSUserInterfaceItemIdentifier("topBar")
     }
 
@@ -122,7 +92,6 @@ final class MainViewController: NSViewController {
     // MARK: Content area
 
     private func setupContent() {
-        // Build panel stack inside scroll view
         panelStack.orientation  = .vertical
         panelStack.alignment    = .leading
         panelStack.spacing      = Styles.mainSpacing
@@ -135,22 +104,19 @@ final class MainViewController: NSViewController {
             panelStack.addArrangedSubview(panel)
         }
 
-        // Make panels fill the scroll view width
         for panel in resultPanels.values {
             panel.translatesAutoresizingMaskIntoConstraints = false
         }
 
-        panelScrollView.documentView        = panelStack
-        panelScrollView.hasVerticalScroller = true
+        panelScrollView.documentView          = panelStack
+        panelScrollView.hasVerticalScroller   = true
         panelScrollView.hasHorizontalScroller = false
-        panelScrollView.autohidesScrollers  = true
-        panelScrollView.drawsBackground     = false
+        panelScrollView.autohidesScrollers    = true
+        panelScrollView.drawsBackground       = false
 
-        // Combine panel fixed width
         combinePanel.delegate = self
         combinePanel.translatesAutoresizingMaskIntoConstraints = false
 
-        // Horizontal split
         let topBar = view.subviews.first(where: {
             $0.identifier?.rawValue == "topBar"
         })!
@@ -179,14 +145,12 @@ final class MainViewController: NSViewController {
             combinePanel.widthAnchor.constraint(equalToConstant: Styles.combineWidth),
         ])
 
-        // Panel stack width = scroll view content width
         panelStack.translatesAutoresizingMaskIntoConstraints = false
         let clip = panelScrollView.contentView
         panelStack.leadingAnchor.constraint(equalTo: clip.leadingAnchor).isActive = true
         panelStack.topAnchor.constraint(equalTo: clip.topAnchor).isActive = true
         panelStack.widthAnchor.constraint(equalTo: clip.widthAnchor).isActive = true
 
-        // Each panel fills the stack width
         for panel in resultPanels.values {
             panel.widthAnchor.constraint(equalTo: panelStack.widthAnchor).isActive = true
         }
@@ -208,15 +172,6 @@ final class MainViewController: NSViewController {
 
     // MARK: Actions
 
-    @objc private func modelSelected() {
-        let title = modelPopup.selectedItem?.title ?? ""
-        viewModel.selectModel(title)
-    }
-
-    @objc private func refreshModels() {
-        viewModel.loadModels()
-    }
-
     @objc private func refreshAll() {
         viewModel.refreshAll()
     }
@@ -230,27 +185,6 @@ final class MainViewController: NSViewController {
 // MARK: - MainViewModelDelegate
 
 extension MainViewController: MainViewModelDelegate {
-
-    func modelsLoadingStarted() {
-        modelPopup.removeAllItems()
-        modelPopup.addItem(withTitle: "Loading...")
-        modelPopup.isEnabled = false
-    }
-
-    func modelsDidLoad(_ models: [String], selectedModel: String) {
-        modelPopup.removeAllItems()
-        for m in models { modelPopup.addItem(withTitle: m) }
-        modelPopup.isEnabled = true
-        if let idx = models.firstIndex(of: selectedModel) {
-            modelPopup.selectItem(at: idx)
-        }
-    }
-
-    func modelsDidFailToLoad() {
-        modelPopup.removeAllItems()
-        modelPopup.addItem(withTitle: "Failed to load")
-        modelPopup.isEnabled = false
-    }
 
     func modeDidUpdate(modeId: String, state: ModeResultState) {
         resultPanels[modeId]?.apply(state)
