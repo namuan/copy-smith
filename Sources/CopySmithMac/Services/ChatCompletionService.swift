@@ -3,7 +3,7 @@ import Foundation
 // MARK: - LLM Service Protocol
 
 protocol LLMService: Sendable {
-    func stream(model: String, prompt: String) -> AsyncThrowingStream<String, Error>
+    func stream(prompt: String) -> AsyncThrowingStream<String, Error>
 }
 
 // MARK: - Errors
@@ -66,12 +66,12 @@ struct ChatCompletionService: LLMService {
     }
 
     /// Returns an AsyncThrowingStream of text chunks. Cancellation propagates automatically.
-    func stream(model: String, prompt: String) -> AsyncThrowingStream<String, Error> {
+    func stream(prompt: String) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
                     try await withRetry(maxAttempts: 3) {
-                        try await performRequest(model: model, prompt: prompt) { chunk in
+                        try await performRequest(prompt: prompt) { chunk in
                             continuation.yield(chunk)
                         }
                     }
@@ -89,7 +89,6 @@ struct ChatCompletionService: LLMService {
     // MARK: Private
 
     private func performRequest(
-        model: String,
         prompt: String,
         onChunk: @Sendable (String) async -> Void
     ) async throws {
@@ -98,7 +97,6 @@ struct ChatCompletionService: LLMService {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
 
         let body: [String: Any] = [
-            "model": model,
             "messages": [["role": "user", "content": prompt]],
             "stream": true
         ]

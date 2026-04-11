@@ -2,7 +2,7 @@ import Foundation
 import FoundationModels
 
 struct FoundationModelService: LLMService {
-    func stream(model: String, prompt: String) -> AsyncThrowingStream<String, Error> {
+    func stream(prompt: String) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { continuation in
             let task = Task {
                 do {
