@@ -167,6 +167,13 @@ final class MainViewController: NSViewController {
             }
             return
         }
+        // Cmd+Q — quit (no menu bar, so handle it here)
+        if event.keyCode == 12,
+           event.modifierFlags.contains(.command) {
+            viewModel.cancelAll()
+            NSApp.terminate(nil)
+            return
+        }
         super.keyDown(with: event)
     }
 
