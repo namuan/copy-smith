@@ -194,7 +194,7 @@ final class CombinePanelView: NSView {
         for modeId in modeIds {
             guard let mode = ChatMode.all.first(where: { $0.id == modeId }) else { continue }
             let row = makeSelectedRow(mode: mode)
-            selectedStack.insertArrangedSubview(row, at: 0)
+            selectedStack.addArrangedSubview(row)
         }
 
         refineBtn.isEnabled = !modeIds.isEmpty
