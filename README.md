@@ -1,15 +1,15 @@
 # Copy Smith
 
 A native macOS writing-assistant popup built in Swift + AppKit.  
-Reads the clipboard, runs your text through eight rewriting modes concurrently against a local OpenAI-compatible API, lets you pick the best result, and copies it back to the clipboard.
+Reads the clipboard, runs your text through eight rewriting modes concurrently using Apple Intelligence, lets you pick the best result, and copies it back to the clipboard.
 
 ## Requirements
 
 | Requirement | Version |
 |---|---|
-| macOS | 13 Ventura or later |
+| macOS | 26.0 or later |
 | Swift | 5.9+ (ships with Xcode 15+) |
-| Local LLM server | OpenAI-compatible, listening at `http://localhost:2276` |
+| Apple Intelligence | Enabled in System Settings > Apple Intelligence & Siri |
 
 ## Build
 
@@ -55,24 +55,21 @@ If the font is not found at launch, the app falls back to the system monospace f
 3. Eight rewriting panels stream results concurrently (max 3 at a time).
 4. Click a panel to expand it; press **Escape** to collapse.
 5. Click **Copy** on any panel to copy that result and quit.
-6. Click **Add >>** to accumulate responses in the **Combine & Refine** panel.
-7. Click **Refine** to merge selected responses into one final output.
-8. Click **Copy** in the refine panel to copy the refined result and quit.
+6. Click **Refresh** on a panel to re-run just that mode.
+7. Click **Add >>** to accumulate responses in the **Combine & Refine** panel.
+8. Click **Refine** to merge selected responses into one final output.
+9. Click **Copy** in the refine panel to copy the refined result and quit.
+10. Click **Refresh All** in the toolbar to re-run all modes.
 
 ## Configuration
 
-All configuration is compiled in as defaults:
-
 | Setting | Default | Source file |
 |---|---|---|
-| API endpoint | `http://localhost:2276/v1/chat/completions` | `ChatCompletionService.swift` |
-| Models endpoint | `http://localhost:2276/v1/models` | `ModelService.swift` |
-| Default model | `qwen3-4b` | `MainViewModel.swift` |
+| API endpoint (fallback) | `http://localhost:2276/v1/chat/completions` | `ChatCompletionService.swift` |
 | Max concurrent requests | `3` | `GenerationScheduler.swift` |
-| Chat timeout | `20 s` | `ChatCompletionService.swift` |
-| Model-list timeout | `10 s` | `ModelService.swift` |
+| Chat timeout (fallback) | `20 s` | `ChatCompletionService.swift` |
 
-The selected model is persisted via `UserDefaults` (key: `selected_model`) and restored on next launch.
+The default LLM backend is Apple Intelligence (`FoundationModelService`). To switch to a local OpenAI-compatible server instead, pass a `ChatCompletionService` instance when constructing `MainViewModel`.
 
 ## Alfred integration
 
@@ -99,7 +96,7 @@ Sources/CopySmithMac/
     AppDelegate.swift       – creates the borderless NSWindow
   UI/
     MainViewController.swift – root layout: top bar + panel scroll + combine panel
-    ResultPanelView.swift    – per-mode panel (expand/collapse, streaming text)
+    ResultPanelView.swift    – per-mode panel (expand/collapse, streaming text, per-panel refresh)
     CombinePanelView.swift   – combine & refine panel
     Styles.swift             – centralised colour, font, and spacing constants
   Domain/
@@ -107,14 +104,16 @@ Sources/CopySmithMac/
     GenerationState.swift    – ModeStatus / ModeResultState value types
   Services/
     ClipboardService.swift        – NSPasteboard read/write
-    PreferencesService.swift      – UserDefaults wrapper (selected model)
-    ChatCompletionService.swift   – URLSession SSE streaming + retry logic
-    ModelService.swift            – /v1/models discovery
+    LLMService.swift              – LLMService protocol + ChatError types
+    ChatCompletionService.swift   – URLSession SSE streaming + retry logic (OpenAI-compatible)
+    FoundationModelService.swift  – Apple Intelligence via FoundationModels framework
   Controllers/
     GenerationScheduler.swift – actor; enforces max-3 concurrency
     MainViewModel.swift       – @MainActor orchestrator; all app state
 ```
 
+**LLM backend:** The app uses `FoundationModelService` by default, which routes requests through Apple Intelligence on-device. `ChatCompletionService` is also available for OpenAI-compatible local servers. Both conform to the `LLMService` protocol, making the backend swappable.
+
 **Concurrency model:** one `Task` per mode, coordinated through `GenerationScheduler` (actor). Each task carries a generation token; stale responses from cancelled tasks are silently discarded. `@MainActor` isolation ensures all UI mutations happen on the main thread.
 
-**Retry policy:** 3 attempts; HTTP 429 / 5xx and network errors are retried with exponential back-off starting at 1.5 s, capped at 10 s. `Retry-After` headers are respected when present.
+**Retry policy (ChatCompletionService):** 3 attempts; HTTP 429 / 5xx and network errors are retried with exponential back-off starting at 1.5 s, capped at 10 s. `Retry-After` headers are respected when present.
