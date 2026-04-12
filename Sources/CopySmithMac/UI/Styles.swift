@@ -58,6 +58,7 @@ enum Styles {
     // Combine panel
     static let combineInnerMargin:   CGFloat = 8
     static let combineSpacing:       CGFloat = 6
+    static let selectedScrollMinH:   CGFloat = 60
     static let selectedScrollMaxH:   CGFloat = 120
 }
 

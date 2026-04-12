@@ -85,6 +85,15 @@ final class CombinePanelView: NSView {
         selectedScroll.autohidesScrollers  = true
         selectedScroll.borderType          = .lineBorder
 
+        // Pin selectedStack to the clip view so it lays out correctly
+        selectedStack.translatesAutoresizingMaskIntoConstraints = false
+        let clip = selectedScroll.contentView
+        NSLayoutConstraint.activate([
+            selectedStack.leadingAnchor.constraint(equalTo: clip.leadingAnchor),
+            selectedStack.topAnchor.constraint(equalTo: clip.topAnchor),
+            selectedStack.widthAnchor.constraint(equalTo: clip.widthAnchor),
+        ])
+
         // Buttons row
         configureSmallButton(clearAllBtn, title: "Clear All")
         configureSmallButton(refineBtn,   title: "Refine")
@@ -158,6 +167,7 @@ final class CombinePanelView: NSView {
                 equalTo: root.widthAnchor, constant: -(Styles.combineInnerMargin * 2)),
             selectedScroll.widthAnchor.constraint(
                 equalTo: root.widthAnchor, constant: -(Styles.combineInnerMargin * 2)),
+            selectedScroll.heightAnchor.constraint(greaterThanOrEqualToConstant: Styles.selectedScrollMinH),
             selectedScroll.heightAnchor.constraint(lessThanOrEqualToConstant: Styles.selectedScrollMaxH),
             btnRow.widthAnchor.constraint(
                 equalTo: root.widthAnchor, constant: -(Styles.combineInnerMargin * 2)),
@@ -184,7 +194,7 @@ final class CombinePanelView: NSView {
         for modeId in modeIds {
             guard let mode = ChatMode.all.first(where: { $0.id == modeId }) else { continue }
             let row = makeSelectedRow(mode: mode)
-            selectedStack.addArrangedSubview(row)
+            selectedStack.insertArrangedSubview(row, at: 0)
         }
 
         refineBtn.isEnabled = !modeIds.isEmpty
@@ -205,14 +215,27 @@ final class CombinePanelView: NSView {
         label.isEditable = false
         label.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
-        let removeBtn = NSButton(title: "X", target: nil, action: nil)
-        removeBtn.bezelStyle = .rounded
-        removeBtn.font = NSFont.systemFont(ofSize: 11)
-        removeBtn.identifier = NSUserInterfaceItemIdentifier(rawValue: mode.id)
-        removeBtn.target = self
-        removeBtn.action = #selector(onRemove(_:))
+        let removeBtn = NSButton(title: "", target: nil, action: nil)
+        removeBtn.attributedTitle = NSAttributedString(string: "✕", attributes: [
+            .foregroundColor: NSColor.white,
+            .font: NSFont.systemFont(ofSize: 8, weight: .bold)
+        ])
+        removeBtn.bezelStyle  = .regularSquare
+        removeBtn.isBordered  = false
+        removeBtn.wantsLayer  = true
+        removeBtn.layer?.backgroundColor = Styles.errorText.cgColor
+        removeBtn.layer?.cornerRadius    = 7
+        removeBtn.identifier  = NSUserInterfaceItemIdentifier(rawValue: mode.id)
+        removeBtn.target      = self
+        removeBtn.action      = #selector(onRemove(_:))
+        removeBtn.translatesAutoresizingMaskIntoConstraints = false
+        removeBtn.widthAnchor.constraint(equalToConstant: 14).isActive = true
+        removeBtn.heightAnchor.constraint(equalToConstant: 14).isActive = true
 
-        let row = NSStackView(views: [label, removeBtn])
+        let spacer = NSView()
+        spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
+
+        let row = NSStackView(views: [label, spacer, removeBtn])
         row.orientation  = .horizontal
         row.spacing      = 4
         row.alignment    = .centerY
