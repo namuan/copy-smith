@@ -119,4 +119,7 @@ build_app_bundle "$DEST_APP" "$BINARY"
 
 echo "Installing to ${DEST_APP}..."
 echo "Done."
-open "$DEST_APP"
+
+if [[ " $* " == *" --open "* ]]; then
+  open "$DEST_APP"
+fi
