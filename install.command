@@ -18,10 +18,10 @@ if ! xcode-select -p >/dev/null 2>&1; then
 fi
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
-APP_NAME="CopySmithMac"
+APP_NAME="CopySmith"
 DERIVED="$ROOT/.build"
 BINARY="$DERIVED/release/$APP_NAME"
-ICON_PNG="$ROOT/Sources/CopySmithMac/Resources/icon.png"
+ICON_PNG="$ROOT/Sources/CopySmith/Resources/icon.png"
 ICONSET_DIR="$DERIVED/AppIcon.iconset"
 ICON_ICNS="$DERIVED/AppIcon.icns"
 DEST_DIR="$HOME/Applications"
@@ -76,7 +76,7 @@ build_app_bundle() {
   <key>CFBundleExecutable</key>
   <string>$APP_NAME</string>
   <key>CFBundleIdentifier</key>
-  <string>com.copy-smith.CopySmithMac</string>
+  <string>com.copy-smith.CopySmith</string>
   <key>CFBundleName</key>
   <string>$APP_NAME</string>
   <key>CFBundleDisplayName</key>

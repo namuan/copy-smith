@@ -2,19 +2,19 @@
 import PackageDescription
 
 let package = Package(
-    name: "CopySmithMac",
+    name: "CopySmith",
     platforms: [
         .macOS("26.0")
     ],
     targets: [
         .executableTarget(
-            name: "CopySmithMac",
-            path: "Sources/CopySmithMac"
+            name: "CopySmith",
+            path: "Sources/CopySmith"
         ),
         .testTarget(
-            name: "CopySmithMacTests",
-            dependencies: ["CopySmithMac"],
-            path: "Tests/CopySmithMacTests"
+            name: "CopySmithTests",
+            dependencies: ["CopySmith"],
+            path: "Tests/CopySmithTests"
         )
     ]
 )

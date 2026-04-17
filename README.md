@@ -24,7 +24,7 @@ swift build -c release
 swift run
 
 # Run the release binary
-.build/release/CopySmithMac
+.build/release/CopySmith
 ```
 
 No Xcode project file is required. Everything is driven by `Package.swift`.
@@ -76,13 +76,13 @@ The default LLM backend is Apple Intelligence (`FoundationModelService`). To swi
 Create an Alfred workflow with a **Run Script** action:
 
 ```bash
-open -a CopySmithMac
+open -a CopySmith
 ```
 
 Or, if you keep the release binary on `$PATH`:
 
 ```bash
-/path/to/CopySmithMac &
+/path/to/CopySmith &
 ```
 
 The app activates itself and steals focus (`NSApp.activate(ignoringOtherApps: true)`), so it pops up on top of whatever Alfred launched it from.
@@ -90,7 +90,7 @@ The app activates itself and steals focus (`NSApp.activate(ignoringOtherApps: tr
 ## Architecture
 
 ```
-Sources/CopySmithMac/
+Sources/CopySmith/
   App/
     main.swift              – NSApplication entry point
     AppDelegate.swift       – creates the borderless NSWindow
