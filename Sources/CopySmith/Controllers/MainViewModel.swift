@@ -26,7 +26,7 @@ final class MainViewModel {
 
     private let clipboard: ClipboardServiceProtocol
     private let chatService: any LLMService
-    private let scheduler = GenerationScheduler()
+    private let scheduler = GenerationScheduler(maxConcurrent: 1)
 
     // MARK: Task tracking
 
@@ -46,7 +46,7 @@ final class MainViewModel {
 
     init(
         clipboard: ClipboardServiceProtocol = ClipboardService(),
-        chatService: any LLMService = FoundationModelService()
+        chatService: any LLMService = LlamaCppService()
     ) {
         self.clipboard = clipboard
         self.chatService = chatService

@@ -4,11 +4,17 @@ import PackageDescription
 let package = Package(
     name: "CopySmith",
     platforms: [
-        .macOS("26.0")
+        .macOS("13.0")
+    ],
+    dependencies: [
+        .package(url: "https://github.com/eastriverlee/LLM.swift/", branch: "main")
     ],
     targets: [
         .executableTarget(
             name: "CopySmith",
+            dependencies: [
+                .product(name: "LLM", package: "LLM.swift")
+            ],
             path: "Sources/CopySmith"
         ),
         .testTarget(

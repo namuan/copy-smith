@@ -61,12 +61,20 @@ build_app_bundle() {
   local binary="$2"
   local macos_dir="$bundle/Contents/MacOS"
   local resources_dir="$bundle/Contents/Resources"
+  local frameworks_dir="$bundle/Contents/Frameworks"
 
   rm -rf "$bundle"
-  mkdir -p "$macos_dir" "$resources_dir"
+  mkdir -p "$macos_dir" "$resources_dir" "$frameworks_dir"
 
   cp "$binary" "$macos_dir/$APP_NAME"
   chmod +x "$macos_dir/$APP_NAME"
+
+  # Embed llama.framework and fix its rpath so the binary can find it.
+  if [ -d "$DERIVED/release/llama.framework" ]; then
+    cp -R "$DERIVED/release/llama.framework" "$frameworks_dir/"
+    install_name_tool -add_rpath @executable_path/../Frameworks \
+      "$macos_dir/$APP_NAME" 2>/dev/null || true
+  fi
 
   cat > "$bundle/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
