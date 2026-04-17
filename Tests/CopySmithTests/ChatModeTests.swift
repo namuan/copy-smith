@@ -1,5 +1,5 @@
 import XCTest
-@testable import CopySmithMac
+@testable import CopySmith
 
 final class ChatModeTests: XCTestCase {
 
