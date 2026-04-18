@@ -38,20 +38,27 @@ create_icns_from_png() {
     return 0
   fi
 
+  # Skip if icon.png hasn't changed since last icns build.
+  if [ -f "$ICON_ICNS" ] && [ "$ICON_PNG" -ot "$ICON_ICNS" ]; then
+    return 0
+  fi
+
+  echo "Generating AppIcon.icns from icon.png..."
   rm -rf "$ICONSET_DIR"
   mkdir -p "$ICONSET_DIR"
 
-  echo "Generating AppIcon.icns from icon.png..."
-  sips -z 16 16     "$ICON_PNG" --out "$ICONSET_DIR/icon_16x16.png"      >/dev/null
-  sips -z 32 32     "$ICON_PNG" --out "$ICONSET_DIR/icon_16x16@2x.png"   >/dev/null
-  sips -z 32 32     "$ICON_PNG" --out "$ICONSET_DIR/icon_32x32.png"      >/dev/null
-  sips -z 64 64     "$ICON_PNG" --out "$ICONSET_DIR/icon_32x32@2x.png"   >/dev/null
-  sips -z 128 128   "$ICON_PNG" --out "$ICONSET_DIR/icon_128x128.png"    >/dev/null
-  sips -z 256 256   "$ICON_PNG" --out "$ICONSET_DIR/icon_128x128@2x.png" >/dev/null
-  sips -z 256 256   "$ICON_PNG" --out "$ICONSET_DIR/icon_256x256.png"    >/dev/null
-  sips -z 512 512   "$ICON_PNG" --out "$ICONSET_DIR/icon_256x256@2x.png" >/dev/null
-  sips -z 512 512   "$ICON_PNG" --out "$ICONSET_DIR/icon_512x512.png"    >/dev/null
-  sips -z 1024 1024 "$ICON_PNG" --out "$ICONSET_DIR/icon_512x512@2x.png" >/dev/null
+  # Generate all sizes in parallel.
+  sips -z 16   16   "$ICON_PNG" --out "$ICONSET_DIR/icon_16x16.png"      >/dev/null &
+  sips -z 32   32   "$ICON_PNG" --out "$ICONSET_DIR/icon_16x16@2x.png"   >/dev/null &
+  sips -z 32   32   "$ICON_PNG" --out "$ICONSET_DIR/icon_32x32.png"      >/dev/null &
+  sips -z 64   64   "$ICON_PNG" --out "$ICONSET_DIR/icon_32x32@2x.png"   >/dev/null &
+  sips -z 128  128  "$ICON_PNG" --out "$ICONSET_DIR/icon_128x128.png"    >/dev/null &
+  sips -z 256  256  "$ICON_PNG" --out "$ICONSET_DIR/icon_128x128@2x.png" >/dev/null &
+  sips -z 256  256  "$ICON_PNG" --out "$ICONSET_DIR/icon_256x256.png"    >/dev/null &
+  sips -z 512  512  "$ICON_PNG" --out "$ICONSET_DIR/icon_256x256@2x.png" >/dev/null &
+  sips -z 512  512  "$ICON_PNG" --out "$ICONSET_DIR/icon_512x512.png"    >/dev/null &
+  sips -z 1024 1024 "$ICON_PNG" --out "$ICONSET_DIR/icon_512x512@2x.png" >/dev/null &
+  wait
 
   iconutil -c icns "$ICONSET_DIR" -o "$ICON_ICNS"
 }
@@ -61,12 +68,20 @@ build_app_bundle() {
   local binary="$2"
   local macos_dir="$bundle/Contents/MacOS"
   local resources_dir="$bundle/Contents/Resources"
+  local frameworks_dir="$bundle/Contents/Frameworks"
 
   rm -rf "$bundle"
-  mkdir -p "$macos_dir" "$resources_dir"
+  mkdir -p "$macos_dir" "$resources_dir" "$frameworks_dir"
 
   cp "$binary" "$macos_dir/$APP_NAME"
   chmod +x "$macos_dir/$APP_NAME"
+
+  # Embed llama.framework; rsync skips unchanged files on reinstall.
+  if [ -d "$DERIVED/release/llama.framework" ]; then
+    rsync -a --delete "$DERIVED/release/llama.framework" "$frameworks_dir/"
+    install_name_tool -add_rpath @executable_path/../Frameworks \
+      "$macos_dir/$APP_NAME" 2>/dev/null || true
+  fi
 
   cat > "$bundle/Contents/Info.plist" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
