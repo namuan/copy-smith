@@ -30,7 +30,8 @@ final class LlamaCppService: LLMService, @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         if let existing = bot { return existing }
-        guard let newBot = LLM(from: modelURL.path, historyLimit: 0, maxTokenCount: 4096) else {
+        let resolvedPath = modelURL.resolvingSymlinksInPath().path
+        guard let newBot = LLM(from: resolvedPath, historyLimit: 0, maxTokenCount: 4096) else {
             throw ChatError.unavailable(
                 "No model found at \(modelURL.path)\n" +
                 "Set COPYSMITH_MODEL_PATH to a .gguf file path, or place a model in " +
@@ -65,7 +66,8 @@ final class LlamaCppService: LLMService, @unchecked Sendable {
             guard url.pathExtension == "gguf",
                   !url.lastPathComponent.hasPrefix("mmproj") else { continue }
             let resolved = url.resolvingSymlinksInPath()
-            let size = (try? resolved.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? Int.max
+            guard let size = (try? resolved.resourceValues(forKeys: [.fileSizeKey]))?.fileSize,
+                  size > 0 else { continue }
             candidates.append((url, size))
         }
         return candidates.min(by: { $0.size < $1.size })?.url
