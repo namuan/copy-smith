@@ -30,10 +30,9 @@ final class LlamaCppService: LLMService, @unchecked Sendable {
         lock.lock()
         defer { lock.unlock() }
         if let existing = bot { return existing }
-        let resolvedPath = modelURL.resolvingSymlinksInPath().path
-        guard let newBot = LLM(from: resolvedPath, historyLimit: 0, maxTokenCount: 4096) else {
+        guard let newBot = LLM(from: modelURL.path, historyLimit: 0, maxTokenCount: 4096) else {
             throw ChatError.unavailable(
-                "No model found at \(modelURL.path)\n" +
+                "Failed to load model at \(modelURL.path)\n" +
                 "Set COPYSMITH_MODEL_PATH to a .gguf file path, or place a model in " +
                 "~/.cache/huggingface/hub/"
             )
@@ -54,22 +53,26 @@ final class LlamaCppService: LLMService, @unchecked Sendable {
         return hubDir.appendingPathComponent("model.gguf")
     }
 
+    // stat() follows symlinks; lstat() (used by Foundation APIs) does not.
+    // Broken symlinks return rc=-1 and are skipped automatically.
     private static func findSmallestModel(in dir: URL) -> URL? {
         guard let enumerator = FileManager.default.enumerator(
             at: dir,
-            includingPropertiesForKeys: [.fileSizeKey],
+            includingPropertiesForKeys: nil,
             options: [.skipsHiddenFiles]
         ) else { return nil }
 
-        var candidates: [(url: URL, size: Int)] = []
+        var best: (url: URL, size: Int)?
         for case let url as URL in enumerator {
             guard url.pathExtension == "gguf",
                   !url.lastPathComponent.hasPrefix("mmproj") else { continue }
-            let resolved = url.resolvingSymlinksInPath()
-            guard let size = (try? resolved.resourceValues(forKeys: [.fileSizeKey]))?.fileSize,
-                  size > 0 else { continue }
-            candidates.append((url, size))
+            var st = stat()
+            guard stat(url.path, &st) == 0, st.st_size > 0 else { continue }
+            let size = Int(st.st_size)
+            if best == nil || size < best!.size {
+                best = (url, size)
+            }
         }
-        return candidates.min(by: { $0.size < $1.size })?.url
+        return best?.url
     }
 }
