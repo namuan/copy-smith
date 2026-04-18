@@ -8,6 +8,7 @@ protocol MainViewModelDelegate: AnyObject {
     func modeDidUpdate(modeId: String, state: ModeResultState)
     func selectionDidChange(selectedModeIds: [String])
     func refineDidUpdate(text: String, isLoading: Bool)
+    func modelSelectionDidFail()
 }
 
 // MARK: - ViewModel
@@ -25,8 +26,15 @@ final class MainViewModel {
     // MARK: Dependencies
 
     private let clipboard: ClipboardServiceProtocol
-    private let chatService: any LLMService
+    private var chatService: any LLMService
     private let scheduler = GenerationScheduler(maxConcurrent: 1)
+
+    // MARK: Model selection
+
+    let availableModels: [URL]
+    private(set) var selectedModelURL: URL
+    private var previousModelURL: URL?
+    private var hasReportedModelLoadFailure = false
 
     // MARK: Task tracking
 
@@ -48,6 +56,9 @@ final class MainViewModel {
         clipboard: ClipboardServiceProtocol = ClipboardService(),
         chatService: any LLMService = LlamaCppService()
     ) {
+        let models = LlamaCppService.availableModels()
+        self.availableModels = models
+        self.selectedModelURL = LlamaCppService.resolveModelURL(knownModels: models)
         self.clipboard = clipboard
         self.chatService = chatService
 
@@ -55,14 +66,17 @@ final class MainViewModel {
             modeStates[mode.id] = .initial
             modeGenerations[mode.id] = 0
         }
+        log.info("ViewModel", "initialised — \(ChatMode.all.count) modes, model: \(selectedModelURL.lastPathComponent)")
     }
 
     // MARK: Launch
 
     func onLaunch() {
         clipboardText = clipboard.readString() ?? ""
+        log.info("ViewModel", "launch — clipboard \(clipboardText.count) chars, empty=\(clipboardText.isEmpty)")
 
         if clipboardText.isEmpty {
+            log.warn("ViewModel", "clipboard empty, skipping generation")
             for mode in ChatMode.all {
                 let state = ModeResultState(
                     text: "Clipboard is empty. Copy some text and restart the application.",
@@ -80,6 +94,7 @@ final class MainViewModel {
     // MARK: Refresh all
 
     func refreshAll() {
+        log.info("ViewModel", "refreshAll — cancelling \(modeTasks.count) running task(s), gen → \(currentBatchGeneration + 1)")
         for task in modeTasks.values { task.cancel() }
         modeTasks = [:]
         refineTask?.cancel()
@@ -110,10 +125,24 @@ final class MainViewModel {
         startAllModes(generation: gen)
     }
 
+    // MARK: Model selection
+
+    func selectModel(url: URL) {
+        guard url != selectedModelURL else { return }
+        log.info("ViewModel", "model selection: \(selectedModelURL.lastPathComponent) → \(url.lastPathComponent)")
+        previousModelURL = selectedModelURL
+        hasReportedModelLoadFailure = false
+        selectedModelURL = url
+        UserDefaults.standard.set(url.path, forKey: LlamaCppService.selectedModelKey)
+        chatService = LlamaCppService(modelURL: url)
+        refreshAll()
+    }
+
     // MARK: Refresh one
 
     func refreshMode(_ modeId: String) {
         guard let mode = ChatMode.all.first(where: { $0.id == modeId }) else { return }
+        log.info("ViewModel", "refreshMode: \(modeId), gen → \(currentBatchGeneration + 1)")
 
         modeTasks[modeId]?.cancel()
         modeTasks[modeId] = nil
@@ -162,6 +191,7 @@ final class MainViewModel {
 
     func refine() {
         guard !selectedModeIds.isEmpty else { return }
+        log.info("ViewModel", "refine — \(selectedModeIds.count) mode(s): \(selectedModeIds.joined(separator: ", "))")
 
         let blocks: [(mode: ChatMode, text: String)] = selectedModeIds.compactMap { modeId in
             guard let mode = ChatMode.all.first(where: { $0.id == modeId }),
@@ -209,6 +239,7 @@ final class MainViewModel {
     // MARK: Lifecycle
 
     func cancelAll() {
+        log.info("ViewModel", "cancelAll — \(modeTasks.count) task(s)")
         for task in modeTasks.values { task.cancel() }
         modeTasks = [:]
         refineTask?.cancel()
@@ -223,12 +254,15 @@ final class MainViewModel {
     }
 
     private func startMode(_ mode: ChatMode, generation: Int) {
+        log.debug("ViewModel", "[\(mode.id)] queued (gen=\(generation))")
+
         let task = Task { [weak self] in
             guard let self else { return }
 
             do {
                 try await self.scheduler.waitForSlot()
             } catch {
+                log.debug("ViewModel", "[\(mode.id)] cancelled while waiting for slot")
                 return
             }
 
@@ -236,14 +270,22 @@ final class MainViewModel {
                 Task { await self.scheduler.release() }
             }
 
-            guard !Task.isCancelled else { return }
-            guard self.modeGenerations[mode.id] == generation else { return }
+            guard !Task.isCancelled else {
+                log.debug("ViewModel", "[\(mode.id)] cancelled before start")
+                return
+            }
+            guard self.modeGenerations[mode.id] == generation else {
+                log.debug("ViewModel", "[\(mode.id)] stale generation, skipping")
+                return
+            }
 
             let loading = ModeResultState(text: "Loading...", status: .running, generation: generation)
             self.modeStates[mode.id] = loading
             self.delegate?.modeDidUpdate(modeId: mode.id, state: loading)
 
             let prompt = mode.buildPrompt(for: self.clipboardText)
+            log.info("ViewModel", "[\(mode.id)] generation started — prompt \(prompt.count) chars")
+            let genStart = Date()
             var accumulated = ""
 
             do {
@@ -259,15 +301,38 @@ final class MainViewModel {
                 }
 
                 guard self.modeGenerations[mode.id] == generation else { return }
+                let elapsed = Date().timeIntervalSince(genStart)
+                log.info("ViewModel", "[\(mode.id)] generation done — \(accumulated.count) chars in \(String(format: "%.2f", elapsed))s")
                 let done = ModeResultState(text: accumulated, status: .done, generation: generation)
                 self.modeStates[mode.id] = done
                 self.delegate?.modeDidUpdate(modeId: mode.id, state: done)
 
             } catch is CancellationError {
-                // ignore
+                log.debug("ViewModel", "[\(mode.id)] generation cancelled")
             } catch {
                 guard self.modeGenerations[mode.id] == generation else { return }
                 let msg = errorMessage(from: error)
+
+                if case .unavailable = error as? ChatError, !self.hasReportedModelLoadFailure {
+                    self.hasReportedModelLoadFailure = true
+                    log.error("ViewModel", "[\(mode.id)] model load failure — reverting to \(self.previousModelURL?.lastPathComponent ?? "none"): \(msg)")
+                    for task in self.modeTasks.values { task.cancel() }
+                    self.modeTasks = [:]
+                    if let prev = self.previousModelURL {
+                        self.selectedModelURL = prev
+                        self.chatService = LlamaCppService(modelURL: prev)
+                        self.previousModelURL = nil
+                    }
+                    for m in ChatMode.all {
+                        let errState = ModeResultState(text: msg, status: .error(msg), generation: generation)
+                        self.modeStates[m.id] = errState
+                        self.delegate?.modeDidUpdate(modeId: m.id, state: errState)
+                    }
+                    self.delegate?.modelSelectionDidFail()
+                    return
+                }
+
+                log.error("ViewModel", "[\(mode.id)] generation error: \(msg)")
                 let errState = ModeResultState(text: msg, status: .error(msg), generation: generation)
                 self.modeStates[mode.id] = errState
                 self.delegate?.modeDidUpdate(modeId: mode.id, state: errState)

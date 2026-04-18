@@ -7,7 +7,7 @@ let package = Package(
         .macOS("13.0")
     ],
     dependencies: [
-        .package(url: "https://github.com/eastriverlee/LLM.swift/", branch: "main")
+        .package(path: "vendor/LLM.swift")
     ],
     targets: [
         .executableTarget(
