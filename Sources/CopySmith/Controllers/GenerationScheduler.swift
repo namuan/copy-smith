@@ -14,14 +14,19 @@ actor GenerationScheduler {
     /// Suspends until a slot is available, then acquires it.
     /// Throws `CancellationError` if the calling task is cancelled while waiting.
     func waitForSlot() async throws {
+        if running >= maxConcurrent {
+            log.debug("Scheduler", "waiting for slot (running: \(running)/\(maxConcurrent))")
+        }
         while running >= maxConcurrent {
             try Task.checkCancellation()
             try await Task.sleep(nanoseconds: 50_000_000) // 50 ms polling
         }
         running += 1
+        log.debug("Scheduler", "slot acquired (running: \(running)/\(maxConcurrent))")
     }
 
     func release() {
         running = max(0, running - 1)
+        log.debug("Scheduler", "slot released (running: \(running)/\(maxConcurrent))")
     }
 }

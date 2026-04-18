@@ -10,6 +10,7 @@ final class MainViewController: NSViewController {
     // MARK: UI
 
     // Top bar
+    private let modelPicker   = NSPopUpButton(frame: .zero, pullsDown: false)
     private let refreshAllBtn = NSButton(title: "Refresh All", target: nil, action: nil)
     private let closeBtn      = NSButton(title: "Close",       target: nil, action: nil)
 
@@ -50,6 +51,8 @@ final class MainViewController: NSViewController {
     // MARK: Top bar
 
     private func setupTopBar() {
+        setupModelPicker()
+
         configureToolbarButton(refreshAllBtn, title: "Refresh All")
         refreshAllBtn.target = self
         refreshAllBtn.action = #selector(refreshAll)
@@ -61,7 +64,7 @@ final class MainViewController: NSViewController {
         let spacer = NSView()
         spacer.setContentHuggingPriority(.defaultLow, for: .horizontal)
 
-        let bar = NSStackView(views: [spacer, refreshAllBtn, closeBtn])
+        let bar = NSStackView(views: [spacer, modelPicker, refreshAllBtn, closeBtn])
         bar.orientation  = .horizontal
         bar.spacing      = Styles.mainSpacing
         bar.alignment    = .centerY
@@ -77,6 +80,35 @@ final class MainViewController: NSViewController {
         ])
 
         bar.identifier = NSUserInterfaceItemIdentifier("topBar")
+    }
+
+    private func setupModelPicker() {
+        let models = viewModel.availableModels
+        modelPicker.removeAllItems()
+
+        if models.isEmpty {
+            modelPicker.addItem(withTitle: "No models found")
+            modelPicker.isEnabled = false
+        } else {
+            for url in models {
+                modelPicker.addItem(withTitle: url.lastPathComponent)
+                modelPicker.lastItem?.representedObject = url
+            }
+            modelPicker.selectItem(at: indexOfModel(viewModel.selectedModelURL) ?? 0)
+            modelPicker.isEnabled = true
+        }
+
+        modelPicker.font = Styles.font(size: Styles.buttonFontSize)
+        modelPicker.target = self
+        modelPicker.action = #selector(modelPickerDidChange)
+        modelPicker.translatesAutoresizingMaskIntoConstraints = false
+    }
+
+    private func indexOfModel(_ url: URL) -> Int? {
+        let path = url.standardizedFileURL.path
+        let name = url.lastPathComponent
+        return viewModel.availableModels.firstIndex(where: { $0.standardizedFileURL.path == path })
+            ?? viewModel.availableModels.firstIndex(where: { $0.lastPathComponent == name })
     }
 
     private func configureToolbarButton(_ btn: NSButton, title: String, width: CGFloat? = nil) {
@@ -179,11 +211,19 @@ final class MainViewController: NSViewController {
 
     // MARK: Actions
 
+    @objc private func modelPickerDidChange() {
+        guard let url = modelPicker.selectedItem?.representedObject as? URL else { return }
+        log.info("UI", "model picker changed → \(url.lastPathComponent)")
+        viewModel.selectModel(url: url)
+    }
+
     @objc private func refreshAll() {
+        log.info("UI", "refresh all tapped")
         viewModel.refreshAll()
     }
 
     @objc private func closeApp() {
+        log.info("UI", "close tapped")
         viewModel.cancelAll()
         NSApp.terminate(nil)
     }
@@ -203,6 +243,13 @@ extension MainViewController: MainViewModelDelegate {
 
     func refineDidUpdate(text: String, isLoading: Bool) {
         combinePanel.updateRefinedResult(text: text, isLoading: isLoading)
+    }
+
+    func modelSelectionDidFail() {
+        log.warn("UI", "model selection failed, reverting picker to \(viewModel.selectedModelURL.lastPathComponent)")
+        if let idx = indexOfModel(viewModel.selectedModelURL) {
+            modelPicker.selectItem(at: idx)
+        }
     }
 }
 

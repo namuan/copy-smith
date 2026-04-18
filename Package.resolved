@@ -1,15 +1,6 @@
 {
   "pins" : [
     {
-      "identity" : "llm.swift",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/eastriverlee/LLM.swift/",
-      "state" : {
-        "branch" : "main",
-        "revision" : "427f3b8957a40982500abc8d35ccff8b83ec56a4"
-      }
-    },
-    {
       "identity" : "swift-syntax",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/apple/swift-syntax.git",
