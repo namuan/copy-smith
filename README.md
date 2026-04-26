@@ -52,7 +52,7 @@ If the font is not found at launch, the app falls back to the system monospace f
 
 1. Copy text to the clipboard.
 2. Launch the app (or trigger it from Alfred).
-3. Eight rewriting panels stream results concurrently (max 3 at a time).
+3. Eight rewriting panels run sequentially (one at a time); each panel streams tokens as they arrive.
 4. Click a panel to expand it; press **Escape** to collapse.
 5. Click **Copy** on any panel to copy that result and quit.
 6. Click **Refresh** on a panel to re-run just that mode.
@@ -66,7 +66,7 @@ If the font is not found at launch, the app falls back to the system monospace f
 | Setting | Default | Source file |
 |---|---|---|
 | API endpoint (fallback) | `http://localhost:2276/v1/chat/completions` | `ChatCompletionService.swift` |
-| Max concurrent requests | `3` | `GenerationScheduler.swift` |
+| Max concurrent requests | `1` | `GenerationScheduler.swift` |
 | Chat timeout (fallback) | `20 s` | `ChatCompletionService.swift` |
 
 The default LLM backend is Apple Intelligence (`FoundationModelService`). To switch to a local OpenAI-compatible server instead, pass a `ChatCompletionService` instance when constructing `MainViewModel`.

@@ -40,6 +40,7 @@ final class MainViewModel {
 
     private var modeTasks: [String: Task<Void, Never>] = [:]
     private var refineTask: Task<Void, Never>?
+    private var dispatchSequence = 0
 
     /// Monotonically increasing; used for batch invalidation.
     private var currentBatchGeneration = 0
@@ -100,6 +101,7 @@ final class MainViewModel {
         refineTask?.cancel()
 
         currentBatchGeneration += 1
+        dispatchSequence = 0
         let gen = currentBatchGeneration
 
         for mode in ChatMode.all {
@@ -278,6 +280,10 @@ final class MainViewModel {
                 log.debug("ViewModel", "[\(mode.id)] stale generation, skipping")
                 return
             }
+
+            self.dispatchSequence += 1
+            let seq = self.dispatchSequence
+            log.info("Scheduler", "dispatch #\(seq): \(mode.id) — slot acquired, sending to LLM")
 
             let loading = ModeResultState(text: "Loading...", status: .running, generation: generation)
             self.modeStates[mode.id] = loading
