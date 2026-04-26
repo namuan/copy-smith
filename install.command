@@ -18,6 +18,13 @@ if ! xcode-select -p >/dev/null 2>&1; then
 fi
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
+
+VENDOR_DIR="$ROOT/vendor/LocalLLMClient"
+if [ ! -d "$VENDOR_DIR" ]; then
+  echo "Cloning LocalLLMClient into vendor/..."
+  mkdir -p "$ROOT/vendor"
+  git clone --depth=1 https://github.com/tattn/LocalLLMClient "$VENDOR_DIR"
+fi
 APP_NAME="CopySmith"
 DERIVED="$ROOT/.build"
 BINARY="$DERIVED/release/$APP_NAME"
