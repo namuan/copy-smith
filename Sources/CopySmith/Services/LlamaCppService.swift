@@ -124,7 +124,6 @@ private actor InferenceRunner {
         var tokenCount = 0
 
         let client = try loadedClient()
-        client.resetContext()
         let input = LLMInput.chat([.user(prompt)])
         // Use textStream (sync) rather than responseStream so cancellation is
         // fully cooperative — responseStream spawns an unstructured background

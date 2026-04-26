@@ -23,7 +23,22 @@ VENDOR_DIR="$ROOT/vendor/LocalLLMClient"
 if [ ! -d "$VENDOR_DIR" ]; then
   echo "Cloning LocalLLMClient into vendor/..."
   mkdir -p "$ROOT/vendor"
-  git clone --depth=1 https://github.com/tattn/LocalLLMClient "$VENDOR_DIR"
+  git clone --depth=1 --recurse-submodules --shallow-submodules https://github.com/tattn/LocalLLMClient "$VENDOR_DIR"
+
+  # SPM ignores symlinks that resolve into excluded directories (the exclude/ submodule).
+  # Replace every such symlink with a real copy so SPM compiles the sources.
+  echo "Resolving symlinks in LocalLLMClientLlamaC for SPM compatibility..."
+  find "$VENDOR_DIR/Sources/LocalLLMClientLlamaC" -type l | while read -r link; do
+    target="$(readlink "$link")"
+    abs_target="$(cd "$(dirname "$link")" && realpath "$target" 2>/dev/null || echo "")"
+    if [ -f "$abs_target" ]; then
+      rm "$link"
+      cp "$abs_target" "$link"
+    elif [ -d "$abs_target" ]; then
+      rm "$link"
+      cp -r "$abs_target" "$link"
+    fi
+  done
 fi
 APP_NAME="CopySmith"
 DERIVED="$ROOT/.build"
