@@ -39,6 +39,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationWillTerminate(_ notification: Notification) {
         log.info("App", "terminating")
         viewModel?.cancelAll()
+        viewModel = nil
+
+        // llama.cpp b8851 dispatches ggml_metal_rsets_init asynchronously and
+        // the block sleeps 500 ms between retries.  llama_backend_free() does
+        // not drain that dispatch block, so when exit() calls the C++ static
+        // destructor chain, ggml_metal_rsets_free() fires GGML_ASSERT because
+        // rsets->data is still populated.  _exit(0) skips C++ destructors
+        // entirely — safe for this popup app which has no pending I/O.
+        _exit(0)
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {

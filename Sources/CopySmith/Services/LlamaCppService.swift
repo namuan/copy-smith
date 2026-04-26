@@ -1,68 +1,19 @@
 import Foundation
-import LLM
+import LocalLLMClient
+import LocalLLMClientLlama
 
 final class LlamaCppService: LLMService, @unchecked Sendable {
-    private let modelURL: URL
-    private var bot: LLM?
-    private let lock = NSLock()
+    private let runner: InferenceRunner
 
     init(modelURL: URL = LlamaCppService.resolveModelURL()) {
-        self.modelURL = modelURL
+        runner = InferenceRunner(modelURL: modelURL)
         log.info("LlamaCpp", "service created — model: \(modelURL.lastPathComponent)")
     }
 
     func stream(prompt: String) -> AsyncThrowingStream<String, Error> {
         .taskBacked { continuation in
-            log.debug("LlamaCpp", "stream start — prompt \(prompt.count) chars")
-            let streamStart = Date()
-            var tokenCount = 0
-            let bot = try self.loadedBot()
-            bot.history = []
-            await bot.core.resetContext()
-            await bot.respond(to: prompt) { stream in
-                for await token in stream {
-                    if Task.isCancelled { break }
-                    tokenCount += 1
-                    continuation.yield(token)
-                }
-                return ""
-            }
-            let elapsed = Date().timeIntervalSince(streamStart)
-            log.debug("LlamaCpp", "stream end — \(tokenCount) tokens in \(String(format: "%.2f", elapsed))s")
+            try await self.runner.infer(prompt: prompt) { continuation.yield($0) }
         }
-    }
-
-    // MARK: Private
-
-    private func loadedBot() throws -> LLM {
-        lock.lock()
-        defer { lock.unlock() }
-        if let existing = bot {
-            log.debug("LlamaCpp", "reusing loaded model: \(modelURL.lastPathComponent)")
-            return existing
-        }
-        log.info("LlamaCpp", "loading model: \(modelURL.path)")
-        let loadStart = Date()
-        guard let newBot = LLM(
-            from: modelURL.path,
-            topK: 20,
-            topP: 0.8,
-            temp: 0.7,
-            repeatPenalty: 1.5,
-            historyLimit: 0,
-            maxTokenCount: 1024
-        ) else {
-            log.error("LlamaCpp", "failed to load model: \(modelURL.path)")
-            throw ChatError.unavailable(
-                "Failed to load model at \(modelURL.path)\n" +
-                "Set COPYSMITH_MODEL_PATH to a .gguf file path, or place a model in " +
-                "~/.cache/huggingface/hub/"
-            )
-        }
-        let elapsed = Date().timeIntervalSince(loadStart)
-        log.info("LlamaCpp", "model loaded in \(String(format: "%.2f", elapsed))s: \(modelURL.lastPathComponent)")
-        bot = newBot
-        return newBot
     }
 
     // MARK: Model discovery
@@ -139,5 +90,89 @@ final class LlamaCppService: LLMService, @unchecked Sendable {
             results.append(url)
         }
         return results
+    }
+}
+
+// Serializes concurrent inference requests so LlamaClient (not thread-safe) is
+// never driven by more than one task at a time. Uses task-chaining: each new
+// request waits for the previous task to finish before starting its own inference.
+private actor InferenceRunner {
+    private var client: LlamaClient?
+    private let modelURL: URL
+    private var tailTask: Task<Void, Error>?
+
+    init(modelURL: URL) {
+        self.modelURL = modelURL
+    }
+
+    func infer(prompt: String, onToken: @Sendable @escaping (String) -> Void) async throws {
+        let previous = tailTask
+        let task: Task<Void, Error> = Task { [weak self] in
+            if case .failure(let error) = await previous?.result {
+                log.debug("LlamaCpp", "previous inference task failed (skipping): \(error)")
+            }
+            guard !Task.isCancelled, let self else { return }
+            try await self.runInference(prompt: prompt, onToken: onToken)
+        }
+        tailTask = task
+        try await task.value
+    }
+
+    private func runInference(prompt: String, onToken: @Sendable @escaping (String) -> Void) async throws {
+        log.debug("LlamaCpp", "stream start — prompt \(prompt.count) chars")
+        let streamStart = Date()
+        var tokenCount = 0
+
+        let client = try loadedClient()
+        client.resetContext()
+        let input = LLMInput.chat([.user(prompt)])
+        // Use textStream (sync) rather than responseStream so cancellation is
+        // fully cooperative — responseStream spawns an unstructured background
+        // Task that keeps writing to Context.batch even after the consumer breaks,
+        // racing with the next inference's reset.
+        let generator = try client.textStream(from: input)
+        for try await token in generator {
+            if Task.isCancelled { break }
+            tokenCount += 1
+            onToken(token)
+        }
+
+        let elapsed = Date().timeIntervalSince(streamStart)
+        log.debug("LlamaCpp", "stream end — \(tokenCount) tokens in \(String(format: "%.2f", elapsed))s")
+    }
+
+    private func loadedClient() throws -> LlamaClient {
+        if let existing = client {
+            log.debug("LlamaCpp", "reusing loaded model: \(modelURL.lastPathComponent)")
+            return existing
+        }
+        log.info("LlamaCpp", "loading model: \(modelURL.path)")
+        let loadStart = Date()
+        do {
+            let newClient = try LlamaClient(
+                url: modelURL,
+                mmprojURL: nil,
+                parameter: .init(
+                    context: 4096,
+                    temperature: 0.7,
+                    topK: 20,
+                    topP: 0.8,
+                    penaltyRepeat: 1.5
+                ),
+                messageProcessor: nil
+            )
+            client = newClient
+            let elapsed = Date().timeIntervalSince(loadStart)
+            log.info("LlamaCpp", "model loaded in \(String(format: "%.2f", elapsed))s: \(modelURL.lastPathComponent)")
+            return newClient
+        } catch {
+            log.error("LlamaCpp", "failed to load model: \(modelURL.path) — \(error)")
+            throw ChatError.unavailable(
+                "Failed to load model at \(modelURL.path)\n" +
+                "Set COPYSMITH_MODEL_PATH to a .gguf file path, or place a model in " +
+                "~/.cache/huggingface/hub/\n" +
+                "Error: \(error.localizedDescription)"
+            )
+        }
     }
 }
