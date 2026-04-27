@@ -25,8 +25,7 @@ final class LLMServiceIntegrationTests: XCTestCase {
         var st = stat()
         guard stat(url.path, &st) == 0, st.st_size > 0 else {
             throw XCTSkip(
-                "No GGUF model — set COPYSMITH_MODEL_PATH or place a model " +
-                "in ~/.cache/huggingface/hub/"
+                "No GGUF model — place a model in ~/.cache/huggingface/hub/"
             )
         }
         modelURL = url

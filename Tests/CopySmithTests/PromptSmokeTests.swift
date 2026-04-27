@@ -9,7 +9,7 @@ import Darwin
 ///   swift test --filter PromptSmokeTests
 ///
 /// Requirements:
-///   - A GGUF model in ~/.cache/huggingface/hub/ OR COPYSMITH_MODEL_PATH set.
+///   - A GGUF model in ~/.cache/huggingface/hub/.
 ///   - Skips automatically if no model is found.
 final class PromptSmokeTests: XCTestCase {
 
@@ -33,8 +33,7 @@ final class PromptSmokeTests: XCTestCase {
         var st = stat()
         guard stat(modelURL.path, &st) == 0, st.st_size > 0 else {
             throw XCTSkip(
-                "No GGUF model found — place a model in ~/.cache/huggingface/hub/ " +
-                "or set COPYSMITH_MODEL_PATH"
+                "No GGUF model found — place a model in ~/.cache/huggingface/hub/"
             )
         }
 

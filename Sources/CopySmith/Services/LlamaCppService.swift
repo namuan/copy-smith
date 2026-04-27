@@ -22,10 +22,6 @@ final class LlamaCppService: LLMService, @unchecked Sendable {
 
     // knownModels lets callers pass an already-scanned list to avoid a second hub traversal.
     static func resolveModelURL(knownModels: [URL]? = nil) -> URL {
-        if let envPath = ProcessInfo.processInfo.environment["COPYSMITH_MODEL_PATH"] {
-            log.info("LlamaCpp", "model resolved from COPYSMITH_MODEL_PATH: \(envPath)")
-            return URL(fileURLWithPath: envPath)
-        }
         if let saved = UserDefaults.standard.string(forKey: selectedModelKey) {
             let url = URL(fileURLWithPath: saved)
             var st = stat()
@@ -168,8 +164,7 @@ private actor InferenceRunner {
             log.error("LlamaCpp", "failed to load model: \(modelURL.path) — \(error)")
             throw ChatError.unavailable(
                 "Failed to load model at \(modelURL.path)\n" +
-                "Set COPYSMITH_MODEL_PATH to a .gguf file path, or place a model in " +
-                "~/.cache/huggingface/hub/\n" +
+                "Place a model in ~/.cache/huggingface/hub/\n" +
                 "Error: \(error.localizedDescription)"
             )
         }
