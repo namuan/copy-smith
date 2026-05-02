@@ -1,6 +1,5 @@
 import AppKit
 
-// MARK: - Delegate
 
 @MainActor
 protocol CombinePanelViewDelegate: AnyObject {
@@ -10,15 +9,12 @@ protocol CombinePanelViewDelegate: AnyObject {
     func combineDidRequestCopy()
 }
 
-// MARK: - CombinePanelView
 
 final class CombinePanelView: NSView {
 
-    // MARK: Delegate
 
     weak var delegate: CombinePanelViewDelegate?
 
-    // MARK: Private UI
 
     private let titleLabel       = NSTextField(labelWithString: "Combine & Refine")
     private let instructionLabel = NSTextField(
@@ -34,7 +30,6 @@ final class CombinePanelView: NSView {
     private let resultScroll     = NSScrollView()
     private let copyBtn          = NSButton(title: "Copy",      target: nil, action: nil)
 
-    // MARK: Init
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -44,7 +39,6 @@ final class CombinePanelView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    // MARK: Setup
 
     private func setup() {
         wantsLayer = true
@@ -182,7 +176,6 @@ final class CombinePanelView: NSView {
         btn.font       = Styles.font(size: Styles.buttonFontSize)
     }
 
-    // MARK: State updates
 
     func updateSelectedModes(_ modeIds: [String]) {
         // Remove existing rows
@@ -205,7 +198,6 @@ final class CombinePanelView: NSView {
         resultTextView.string = text
     }
 
-    // MARK: Row builder
 
     private func makeSelectedRow(mode: ChatMode) -> NSView {
         let label = NSTextField(labelWithString: mode.title)
@@ -243,7 +235,6 @@ final class CombinePanelView: NSView {
         return row
     }
 
-    // MARK: Actions
 
     @objc private func onRemove(_ sender: NSButton) {
         delegate?.combineDidRequestRemove(modeId: sender.identifier!.rawValue)

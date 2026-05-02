@@ -3,11 +3,9 @@ import AppKit
 @MainActor
 final class MainViewController: NSViewController {
 
-    // MARK: ViewModel
 
     let viewModel: MainViewModel
 
-    // MARK: UI
 
     // Top bar
     private let modelPicker   = NSPopUpButton(frame: .zero, pullsDown: false)
@@ -22,7 +20,6 @@ final class MainViewController: NSViewController {
     // Per-mode panels keyed by mode id
     private var resultPanels: [String: ResultPanelView] = [:]
 
-    // MARK: Init
 
     init(viewModel: MainViewModel) {
         self.viewModel = viewModel
@@ -33,7 +30,6 @@ final class MainViewController: NSViewController {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    // MARK: Lifecycle
 
     override func loadView() {
         let root = RootContentView()
@@ -48,7 +44,6 @@ final class MainViewController: NSViewController {
         viewModel.onLaunch()
     }
 
-    // MARK: Top bar
 
     private func setupTopBar() {
         setupModelPicker()
@@ -121,7 +116,6 @@ final class MainViewController: NSViewController {
         }
     }
 
-    // MARK: Content area
 
     private func setupContent() {
         panelStack.orientation  = .vertical
@@ -190,7 +184,6 @@ final class MainViewController: NSViewController {
         combinePanel.updateSelectedModes([])
     }
 
-    // MARK: Key events
 
     override func keyDown(with event: NSEvent) {
         if event.keyCode == 53 { // Escape
@@ -209,7 +202,6 @@ final class MainViewController: NSViewController {
         super.keyDown(with: event)
     }
 
-    // MARK: Actions
 
     @objc private func modelPickerDidChange() {
         guard let url = modelPicker.selectedItem?.representedObject as? URL else { return }
@@ -229,7 +221,6 @@ final class MainViewController: NSViewController {
     }
 }
 
-// MARK: - MainViewModelDelegate
 
 extension MainViewController: MainViewModelDelegate {
 
@@ -253,7 +244,6 @@ extension MainViewController: MainViewModelDelegate {
     }
 }
 
-// MARK: - ResultPanelViewDelegate
 
 extension MainViewController: ResultPanelViewDelegate {
 
@@ -272,7 +262,6 @@ extension MainViewController: ResultPanelViewDelegate {
     }
 }
 
-// MARK: - CombinePanelViewDelegate
 
 extension MainViewController: CombinePanelViewDelegate {
 
@@ -296,7 +285,6 @@ extension MainViewController: CombinePanelViewDelegate {
     }
 }
 
-// MARK: - Root content view (draws border + background)
 
 private final class RootContentView: NSView {
 

@@ -1,6 +1,5 @@
 import AppKit
 
-// MARK: - Delegate
 
 @MainActor
 protocol ResultPanelViewDelegate: AnyObject {
@@ -9,7 +8,6 @@ protocol ResultPanelViewDelegate: AnyObject {
     func panelDidRequestAdd(_ panel: ResultPanelView)
 }
 
-// MARK: - Scroll-passthrough scroll view
 
 /// When the user scrolls to the top or bottom edge of this scroll view,
 /// passes the remaining scroll delta up to the enclosing scroll view.
@@ -45,7 +43,6 @@ private class PassthroughScrollView: NSScrollView {
     }
 }
 
-// MARK: - Click-forwarding text view
 
 /// Forwards mouseDown events to the enclosing ResultPanelView so that
 /// clicking anywhere on the panel (including the text area) toggles expansion.
@@ -64,17 +61,14 @@ private class PanelTextView: NSTextView {
     }
 }
 
-// MARK: - ResultPanelView
 
 final class ResultPanelView: NSView {
 
-    // MARK: Public state
 
     let mode: ChatMode
     weak var delegate: ResultPanelViewDelegate?
     private(set) var isExpanded = false
 
-    // MARK: UI elements
 
     private let titleLabel = NSTextField(labelWithString: "")
     private let hintLabel  = NSTextField(labelWithString: "🖱️ Click to expand • ESC to collapse")
@@ -87,7 +81,6 @@ final class ResultPanelView: NSView {
 
     private var textHeightConstraint: NSLayoutConstraint!
 
-    // MARK: Init
 
     init(mode: ChatMode) {
         self.mode = mode
@@ -98,7 +91,6 @@ final class ResultPanelView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) { fatalError() }
 
-    // MARK: Setup
 
     private func setup() {
         wantsLayer = true
@@ -214,7 +206,6 @@ final class ResultPanelView: NSView {
         btn.widthAnchor.constraint(equalToConstant: width).isActive = true
     }
 
-    // MARK: State update
 
     func apply(_ state: ModeResultState) {
         let text = state.text
@@ -241,7 +232,6 @@ final class ResultPanelView: NSView {
         }
     }
 
-    // MARK: Expand / Collapse
 
     override func mouseDown(with event: NSEvent) {
         toggleExpand()
@@ -263,14 +253,12 @@ final class ResultPanelView: NSView {
         window?.layoutIfNeeded()
     }
 
-    // MARK: Actions
 
     @objc private func onRefresh() { delegate?.panelDidRequestRefresh(self) }
     @objc private func onCopy()    { delegate?.panelDidRequestCopy(self)    }
     @objc private func onAdd()     { delegate?.panelDidRequestAdd(self)     }
 }
 
-// MARK: - NSWindow layout helper
 
 private extension NSWindow {
     func layoutIfNeeded() {

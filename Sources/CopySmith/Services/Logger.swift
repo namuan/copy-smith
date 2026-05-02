@@ -1,6 +1,5 @@
 import Foundation
 
-// MARK: - FileLogger
 
 final class FileLogger: @unchecked Sendable {
 
@@ -32,7 +31,6 @@ final class FileLogger: @unchecked Sendable {
         queue.sync { self.setup() }
     }
 
-    // MARK: Public API
 
     func log(_ level: Level, _ component: String, _ message: String) {
         queue.async { [self] in
@@ -44,7 +42,6 @@ final class FileLogger: @unchecked Sendable {
         }
     }
 
-    // MARK: Private
 
     private func setup() {
         try? FileManager.default.createDirectory(at: logDir, withIntermediateDirectories: true)
@@ -89,7 +86,6 @@ final class FileLogger: @unchecked Sendable {
     }
 }
 
-// MARK: - Convenience level methods
 
 extension FileLogger {
     func debug(_ component: String, _ message: String) { log(.debug, component, message) }
@@ -98,6 +94,5 @@ extension FileLogger {
     func error(_ component: String, _ message: String) { log(.error, component, message) }
 }
 
-// MARK: - Module-level shorthand
 
 let log = FileLogger.shared

@@ -33,7 +33,6 @@ final class LLMServiceIntegrationTests: XCTestCase {
         print("\n[Integration] model: \(url.lastPathComponent)")
     }
 
-    // MARK: - Short text, all 8 modes sequentially
 
     /// Runs all 8 ChatModes one after another on the same service instance.
     /// Verifies that the per-request context reset works correctly so each
@@ -71,7 +70,6 @@ final class LLMServiceIntegrationTests: XCTestCase {
         XCTAssertTrue(failures.isEmpty, failures.joined(separator: "\n"))
     }
 
-    // MARK: - Long input (context stress)
 
     /// Sends a prompt long enough to previously trigger "context size exceeded"
     /// and verifies the service handles it without crashing or returning an error.
@@ -98,7 +96,6 @@ final class LLMServiceIntegrationTests: XCTestCase {
         print("[Integration] Long-input PASS: \(output.count) chars in \(fmt(elapsed))s")
     }
 
-    // MARK: - Context reset across multiple rounds
 
     /// Calls the service multiple times on the same instance and verifies that
     /// each call produces independent output (i.e. context is properly reset).
@@ -129,7 +126,6 @@ final class LLMServiceIntegrationTests: XCTestCase {
         }
     }
 
-    // MARK: - Refine prompt (combine mode)
 
     /// Verifies that the Combine & Refine prompt (which is longer, combining
     /// multiple blocks) also works end-to-end.
@@ -148,7 +144,6 @@ final class LLMServiceIntegrationTests: XCTestCase {
         print("[Integration] Refine PASS: \(output.count) chars in \(fmt(elapsed))s")
     }
 
-    // MARK: - Cancellation does not corrupt subsequent calls
 
     /// Cancels a generation mid-stream then immediately starts a new one.
     /// Verifies the second call succeeds — proving the batch/context reset
@@ -181,7 +176,6 @@ final class LLMServiceIntegrationTests: XCTestCase {
         print("[Integration] Post-cancel PASS: \(output.count) chars in \(fmt(elapsed))s")
     }
 
-    // MARK: - Helpers
 
     private func runStream(prompt: String) async -> (output: String, elapsed: TimeInterval, error: Error?) {
         let start = Date()

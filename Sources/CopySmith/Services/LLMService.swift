@@ -1,12 +1,10 @@
 import Foundation
 
-// MARK: - Protocol
 
 protocol LLMService: Sendable {
     func stream(prompt: String) -> AsyncThrowingStream<String, Error>
 }
 
-// MARK: - Errors
 
 enum ChatError: Error, Sendable {
     case unavailable(String)
@@ -15,7 +13,6 @@ enum ChatError: Error, Sendable {
     case cancelled
 }
 
-// MARK: - AsyncThrowingStream helper
 
 extension AsyncThrowingStream where Failure == Error {
     /// Runs `body` inside a Task, finishing the stream on completion and forwarding

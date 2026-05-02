@@ -2,7 +2,6 @@ import AppKit
 
 enum Styles {
 
-    // MARK: Colors
 
     static let appBackground     = NSColor(hex: "#FFFFFF")
     static let outerBorder       = NSColor(hex: "#005fa3")
@@ -18,7 +17,6 @@ enum Styles {
     static let supportingText    = NSColor(hex: "#666666")
     static let errorText         = NSColor(hex: "#e74c3c")
 
-    // MARK: Typography
 
     /// The preferred font. Falls back to system monospace if unavailable.
     static func font(size: CGFloat) -> NSFont {
@@ -30,7 +28,6 @@ enum Styles {
     static let mainFontSize: CGFloat   = 18
     static let buttonFontSize: CGFloat = 14
 
-    // MARK: Spacing
 
     static let windowWidth:  CGFloat = 1250
     static let windowHeight: CGFloat = 700
@@ -62,7 +59,6 @@ enum Styles {
     static let selectedScrollMaxH:   CGFloat = 120
 }
 
-// MARK: - NSColor hex init
 
 extension NSColor {
     convenience init(hex: String) {

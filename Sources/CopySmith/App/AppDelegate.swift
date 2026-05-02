@@ -55,7 +55,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 
-// MARK: - Custom borderless window
 
 final class PopupWindow: NSWindow {
     /// Required for borderless windows to receive keyboard events.

@@ -16,7 +16,6 @@ final class LlamaCppService: LLMService, @unchecked Sendable {
         }
     }
 
-    // MARK: Model discovery
 
     static let selectedModelKey = "selectedModelPath"
 

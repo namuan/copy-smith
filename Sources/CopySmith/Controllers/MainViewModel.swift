@@ -1,7 +1,6 @@
 import Foundation
 import AppKit
 
-// MARK: - Delegate
 
 @MainActor
 protocol MainViewModelDelegate: AnyObject {
@@ -11,32 +10,27 @@ protocol MainViewModelDelegate: AnyObject {
     func modelSelectionDidFail()
 }
 
-// MARK: - ViewModel
 
 @MainActor
 final class MainViewModel {
 
-    // MARK: Published state
 
     private(set) var clipboardText: String = ""
     private(set) var modeStates: [String: ModeResultState] = [:]
     private(set) var selectedModeIds: [String] = []   // ordered
     private(set) var refinedResult: String = ""
 
-    // MARK: Dependencies
 
     private let clipboard: ClipboardServiceProtocol
     private var chatService: any LLMService
     private let scheduler = GenerationScheduler(maxConcurrent: 1)
 
-    // MARK: Model selection
 
     let availableModels: [URL]
     private(set) var selectedModelURL: URL
     private var previousModelURL: URL?
     private var hasReportedModelLoadFailure = false
 
-    // MARK: Task tracking
 
     private var modeTasks: [String: Task<Void, Never>] = [:]
     private var refineTask: Task<Void, Never>?
@@ -47,11 +41,9 @@ final class MainViewModel {
     /// Per-mode generation counter; incremented on individual refresh.
     private var modeGenerations: [String: Int] = [:]
 
-    // MARK: Delegate
 
     weak var delegate: MainViewModelDelegate?
 
-    // MARK: Init
 
     init(
         clipboard: ClipboardServiceProtocol = ClipboardService(),
@@ -70,7 +62,6 @@ final class MainViewModel {
         log.info("ViewModel", "initialised — \(ChatMode.all.count) modes, model: \(selectedModelURL.lastPathComponent)")
     }
 
-    // MARK: Launch
 
     func onLaunch() {
         clipboardText = clipboard.readString() ?? ""
@@ -92,7 +83,6 @@ final class MainViewModel {
         }
     }
 
-    // MARK: Refresh all
 
     func refreshAll() {
         log.info("ViewModel", "refreshAll — cancelling \(modeTasks.count) running task(s), gen → \(currentBatchGeneration + 1)")
@@ -127,7 +117,6 @@ final class MainViewModel {
         startAllModes(generation: gen)
     }
 
-    // MARK: Model selection
 
     func selectModel(url: URL) {
         guard url != selectedModelURL else { return }
@@ -140,7 +129,6 @@ final class MainViewModel {
         refreshAll()
     }
 
-    // MARK: Refresh one
 
     func refreshMode(_ modeId: String) {
         guard let mode = ChatMode.all.first(where: { $0.id == modeId }) else { return }
@@ -171,7 +159,6 @@ final class MainViewModel {
         startMode(mode, generation: gen)
     }
 
-    // MARK: Combine / Refine
 
     func addModeToSelection(_ modeId: String) {
         guard !selectedModeIds.contains(modeId) else { return }
@@ -231,14 +218,12 @@ final class MainViewModel {
         }
     }
 
-    // MARK: Copy
 
     @discardableResult
     func copyToClipboard(_ text: String) -> Bool {
         clipboard.write(text)
     }
 
-    // MARK: Lifecycle
 
     func cancelAll() {
         log.info("ViewModel", "cancelAll — \(modeTasks.count) task(s)")
@@ -247,7 +232,6 @@ final class MainViewModel {
         refineTask?.cancel()
     }
 
-    // MARK: Private helpers
 
     private func startAllModes(generation: Int) {
         for mode in ChatMode.all {
@@ -351,7 +335,6 @@ final class MainViewModel {
     }
 }
 
-// MARK: - Helpers
 
 private func errorMessage(from error: Error) -> String {
     switch error {

@@ -3,7 +3,6 @@ import XCTest
 
 final class ChatModeTests: XCTestCase {
 
-    // MARK: Mode list
 
     func testExactlyEightModes() {
         XCTAssertEqual(ChatMode.all.count, 8)
@@ -22,7 +21,6 @@ final class ChatModeTests: XCTestCase {
         XCTAssertEqual(ids.count, Set(ids).count)
     }
 
-    // MARK: Prompt construction
 
     func testBuildPrompt_containsPrefix() {
         let mode = ChatMode.all[0] // Proofread
@@ -40,7 +38,6 @@ final class ChatModeTests: XCTestCase {
         XCTAssertEqual(prompt, expected)
     }
 
-    // MARK: Refine prompt
 
     func testRefinePrompt_containsModeTitles() {
         let proofread  = ChatMode.all.first(where: { $0.id == "proofread"  })!
